@@ -1,0 +1,19 @@
+{
+  "name": "kanban-app",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "cd backend && node -r dotenv/config server.js dotenv_config_path=../.env",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "build": "cd frontend && npm run build",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "dependencies": {
+    "axios": "^1.12.2",
+    "dotenv": "^16.3.1",
+    "pg": "^8.16.3",
+    "redis": "^5.8.2"
+  }
+}
