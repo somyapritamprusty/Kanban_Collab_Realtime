@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  kanban-app:
+    build: .
+    ports:
+      - "4000:3001"
+    environment:
+      - DATABASE_URL=postgresql://postgres.vnqhaoftefimoktrwrek:IhP8cENaLk5mipFv@aws-1-ap-south-1.pooler.supabase.com:6543/postgres
+      - REDIS_URL=rediss://default:AT1xAAIncDJjNDBmOGRiODA5YTg0MTE1OGIzMjA2NTlmZDgyMjFlN3AyMTU3Mjk@pleasing-corgi-15729.upstash.io:6379
+      - PORT=3001
+      - NODE_ENV=production
+    restart: unless-stopped

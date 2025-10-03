@@ -48,10 +48,16 @@ let sequelize;
 try {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not defined');
   sequelize = new Sequelize(process.env.DATABASE_URL, {
-    dialect: 'postgres',
-    logging: console.log,
-    dialectOptions: { ssl: { require: true, rejectUnauthorized: false } }
-  });
+  dialect: 'postgres',
+  logging: console.log,
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,  // required for Supabase
+    }
+  }
+});
+
 } catch (error) {
   console.log('🔄 Falling back to SQLite...');
   sequelize = new Sequelize({ dialect: 'sqlite', storage: path.resolve(__dirname, '../database.sqlite'), logging: console.log });
@@ -101,7 +107,6 @@ const AuditLog = sequelize.define('AuditLog', {
   event: { type: DataTypes.STRING, allowNull: false },
   userId: { type: DataTypes.STRING, allowNull: false },
   cardId: { type: DataTypes.UUID },
-  boardId: { type: DataTypes.UUID, allowNull: false },
   details: { type: DataTypes.JSON }
 });
 
@@ -117,6 +122,7 @@ const Notification = sequelize.define('Notification', {
 Board.hasMany(Card, { onDelete: 'CASCADE' });
 Card.belongsTo(Board);
 Board.hasMany(AuditLog, { onDelete: 'CASCADE' });
+AuditLog.belongsTo(Board);
 
 // Online users: socket.id => { userId, userName, boardId }
 const onlineUsers = new Map();
