@@ -40,7 +40,14 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", methods: ["GET","POST"] } });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    "https://kanban-collab-realtime.vercel.app"  // replace this with your actual Vercel frontend URL
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // DB setup
