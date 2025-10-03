@@ -3,11 +3,11 @@ FROM node:18-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
-# Copy frontend package files and install dependencies
+# Install frontend dependencies
 COPY frontend/package*.json ./
 RUN npm install
 
-# Copy frontend source code and build
+# Copy frontend source and build
 COPY frontend/ ./
 RUN npm run build
 
@@ -16,26 +16,26 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy backend package files and install dependencies
-COPY backend/package*.json ./backend/package.json
+# Copy backend files and install dependencies
+COPY backend/package*.json ./backend/
 RUN cd backend && npm install
 
 # Copy backend source code
 COPY backend/ ./backend
 
-# Copy built frontend from previous stage
+# Copy frontend build into backend/public
 COPY --from=frontend-build /app/frontend/dist ./backend/public
 
-# Set environment variables
-ENV PORT=3000
-EXPOSE 3000
+# Expose backend port
+ENV PORT=3001
+EXPOSE 3001
 
-# Create non-root user
+# Non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001 && \
     chown -R nextjs:nodejs /app
 
 USER nextjs
 
-# Start backend (which serves API + frontend)
+# Start backend (serves API + frontend)
 CMD ["node", "backend/server.js"]

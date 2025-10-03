@@ -1,4 +1,4 @@
-// server.js — refactored, DRY version
+// server.js — full 296-line version, coupled frontend + backend
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -37,40 +37,35 @@ const app = express();
 const server = http.createServer(app);
 
 // Socket.IO
-const io = new Server(server, { cors: { origin: "*", methods: ["GET","POST"] } });
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET","POST"] } // allow all origins, safe for same container
+});
+
 
 // Middleware
-app.use(cors({
-  origin: [
-    "https://kanban-collab-realtime.vercel.app"  // replace this with your actual Vercel frontend URL
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true
-}));
+// Only allow CORS in development if needed
+if (process.env.NODE_ENV === 'development') {
+  app.use(cors());
+}
+
 
 app.use(express.json());
 
-// DB setup
+// --- DB setup ---
 let sequelize;
 try {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not defined');
   sequelize = new Sequelize(process.env.DATABASE_URL, {
-  dialect: 'postgres',
-  logging: console.log,
-  dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,  // required for Supabase
-    }
-  }
-});
-
+    dialect: 'postgres',
+    logging: console.log,
+    dialectOptions: { ssl: { require: true, rejectUnauthorized: false } }
+  });
 } catch (error) {
   console.log('🔄 Falling back to SQLite...');
   sequelize = new Sequelize({ dialect: 'sqlite', storage: path.resolve(__dirname, '../database.sqlite'), logging: console.log });
 }
 
-// Redis setup with fallback
+// --- Redis setup with fallback ---
 let redisClient;
 if (process.env.REDIS_URL) {
   redisClient = redis.createClient({ url: process.env.REDIS_URL, socket: { tls: true, rejectUnauthorized: false } });
@@ -91,7 +86,7 @@ function createMemoryStore() {
   };
 }
 
-// Sequelize models
+// --- Sequelize models ---
 const Board = sequelize.define('Board', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
   name: { type: DataTypes.STRING, allowNull: false },
@@ -131,10 +126,10 @@ Card.belongsTo(Board);
 Board.hasMany(AuditLog, { onDelete: 'CASCADE' });
 AuditLog.belongsTo(Board);
 
-// Online users: socket.id => { userId, userName, boardId }
+// Online users
 const onlineUsers = new Map();
 
-// === Helper functions ===
+// --- Helper functions ---
 async function broadcastPresence(boardId) {
   try {
     const users = await redisClient.hGetAll(`presence:${boardId}`);
@@ -159,7 +154,7 @@ function normalizeCard(card, boardId) {
   };
 }
 
-// === Socket.IO handlers ===
+// --- Socket.IO events ---
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -207,7 +202,9 @@ io.on('connection', (socket) => {
   socket.on('move-card', async (data) => {
     const card = await Card.findByPk(data.cardId);
     if (!card) return;
-    card.column = data.newColumn; card.position = data.position||0; await card.save();
+    card.column = data.newColumn;
+    card.position = data.position||0;
+    await card.save();
     await logAudit('CardMoved', { userId: data.userId, cardId: card.id, boardId: data.boardId, details: `Card "${card.title}" moved to column "${card.column}"` });
     io.to(data.boardId).emit('card-moved', normalizeCard(card, data.boardId));
   });
@@ -219,8 +216,13 @@ io.on('connection', (socket) => {
     io.to(data.boardId).emit('card-deleted', { id: data.cardId, boardId: data.boardId });
   });
 
-  socket.on('typing-start', (data) => { if(data?.boardId) socket.to(data.boardId).emit('user-typing', { userId: data.userId, userName: data.userName, cardId: data.cardId }); });
-  socket.on('typing-stop', (data) => { if(data?.boardId) socket.to(data.boardId).emit('user-stopped-typing', { userId: data.userId, cardId: data.cardId }); });
+  socket.on('typing-start', (data) => { 
+    if(data?.boardId) socket.to(data.boardId).emit('user-typing', { userId: data.userId, userName: data.userName, cardId: data.cardId }); 
+  });
+
+  socket.on('typing-stop', (data) => { 
+    if(data?.boardId) socket.to(data.boardId).emit('user-stopped-typing', { userId: data.userId, cardId: data.cardId }); 
+  });
 
   socket.on('disconnect', async () => {
     const userData = onlineUsers.get(socket.id);
@@ -233,7 +235,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// === REST API Routes ===
+// --- REST API Routes ---
 // Boards
 app.get('/api/boards', async (req, res) => { 
   const boards = await Board.findAll({ include:[Card], order:[[Card,'position','ASC']] }); 
@@ -271,10 +273,21 @@ app.put('/api/notifications/:id/read', async (req,res) => {
 // Health check
 app.get('/api/health', (req,res) => res.json({ status:'OK', database:sequelize.getDialect(), timestamp:new Date().toISOString() }));
 
-// Initialize DB & start server
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+
+// --- Initialize DB & start server ---
 async function initializeDatabase() { 
-  try { await sequelize.authenticate(); await sequelize.sync({ force:false }); console.log('✅ Database ready'); } 
-  catch(err) { console.error('❌ Database init failed:', err.message); }
+  try { 
+    await sequelize.authenticate(); 
+    await sequelize.sync({ force:false }); 
+    console.log('✅ Database ready'); 
+  } catch(err) { 
+    console.error('❌ Database init failed:', err.message); 
+  }
 }
 
 const PORT = process.env.PORT||3001;

@@ -10,7 +10,7 @@ import './App.css'
 const API_BASE = import.meta.env.VITE_WS_URL || 'http://localhost:3001'
 
 // Socket connection
-const socket = io(API_BASE, { transports: ['websocket', 'polling'] })
+const socket = io("/", { transports: ['websocket', 'polling'] }) // relative path
 
 function App() {
   const [boards, setBoards] = useState([])
@@ -118,41 +118,39 @@ useEffect(() => {
 
   // Fetch boards from backend
   const fetchBoards = async () => {
-    try {
-      setLoading(true)
-      setError('')
-      const res = await axios.get(`${API_BASE}/api/boards`)
-      setBoards(res.data)
-    } catch (err) {
-      console.error(err)
-      setError('Failed to fetch boards.')
-    } finally {
-      setLoading(false)
-    }
+  try {
+    setLoading(true)
+    setError('')
+    const res = await axios.get(`/api/boards`) // relative URL
+    setBoards(res.data)
+  } catch (err) {
+    console.error(err)
+    setError('Failed to fetch boards.')
+  } finally {
+    setLoading(false)
   }
+}
 
-  // Fetch notifications from backend
-  const fetchNotifications = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/api/notifications/${user.id}`)
-      setNotifications(res.data)
-    } catch (err) {
-      console.error(err)
-    }
+const fetchNotifications = async () => {
+  try {
+    const res = await axios.get(`/api/notifications/${user.id}`) // relative URL
+    setNotifications(res.data)
+  } catch (err) {
+    console.error(err)
   }
+}
 
-  // Create a new board
-  const createBoard = async (name) => {
-    try {
-      const res = await axios.post(`${API_BASE}/api/boards`, { name })
-      setBoards(prev => [...prev, res.data])
-      return res.data
-    } catch (err) {
-      console.error(err)
-      setError('Failed to create board.')
-      throw err
-    }
+const createBoard = async (name) => {
+  try {
+    const res = await axios.post(`/api/boards`, { name }) // relative URL
+    setBoards(prev => [...prev, res.data])
+    return res.data
+  } catch (err) {
+    console.error(err)
+    setError('Failed to create board.')
+    throw err
   }
+}
 
   // Join a board
   const joinBoard = (boardId) => {
