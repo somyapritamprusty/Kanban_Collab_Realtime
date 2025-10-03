@@ -1,39 +1,41 @@
-# Use official Node.js runtime as base image
-FROM node:18-alpine
+# Stage 1: Build frontend
+FROM node:18-alpine AS frontend-build
 
-# Set working directory
-WORKDIR /app
+WORKDIR /app/frontend
 
-# Copy package files
-COPY package.json ./
-COPY backend/package.json ./backend/package.json
-COPY frontend/package.json ./frontend/package.json
-
-# Install root dependencies
+# Copy frontend package files and install dependencies
+COPY frontend/package*.json ./
 RUN npm install
 
-# Install backend dependencies
-RUN cd backend && npm install && cd ..
+# Copy frontend source code and build
+COPY frontend/ ./
+RUN npm run build
 
-# Install frontend dependencies
-RUN cd frontend && npm install && cd ..
+# Stage 2: Build backend + bundle frontend
+FROM node:18-alpine
 
-# Copy ALL source code
-COPY . .
+WORKDIR /app
 
-# Build frontend
-RUN cd frontend && npm run build
+# Copy backend package files and install dependencies
+COPY backend/package*.json ./backend/package.json
+RUN cd backend && npm install
 
-# Create a non-root user to run the application
+# Copy backend source code
+COPY backend/ ./backend
+
+# Copy built frontend from previous stage
+COPY --from=frontend-build /app/frontend/dist ./backend/public
+
+# Set environment variables
+ENV PORT=3000
+EXPOSE 3000
+
+# Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001 && \
     chown -R nextjs:nodejs /app
 
-# Switch to non-root user
 USER nextjs
 
-# Expose the port the app runs on
-EXPOSE 3001
-
-# Start the application
-CMD ["npm", "start"]
+# Start backend (which serves API + frontend)
+CMD ["node", "backend/server.js"]
